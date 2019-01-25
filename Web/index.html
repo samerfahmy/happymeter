@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Happy Meter</title>
+
+	<link rel="stylesheet" href="style.css" type="text/css">
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Roboto:100,200,300,400,500,600,700,800,900" type="text/css">
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:100,200,300,400,500,600,700,800,900" type="text/css">
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Lato:100,200,300,400,500,600,700,800,900" type="text/css">
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Indie+Flower:100,200,300,400,500,600,700,800,900" type="text/css">
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Lobster+Two:100,200,300,400,500,600,700,800,900" type="text/css">
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+	<meta charset="UTF-8">
+
+<script>
+
+// The username
+var mUsername = "";
+// The rating poller timer
+var mRatingTimer;
+// Whether a request is in progress
+var mRequestInProgress = false;
+
+/**
+ * String hashcode function
+ * source: http://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript-jquery
+ */
+String.prototype.hashCode = function() {
+  var hash = 0, i, chr, len;
+  if (this.length == 0) return hash;
+  for (i = 0, len = this.length; i < len; i++) {
+    chr   = this.charCodeAt(i);
+    hash  = ((hash << 5) - hash) + chr;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
+};
+
+function setStoredUsername(username) {
+	$("#username_field").val(username);
+	setUsername();
+}
+
+/**
+ * Sets the username
+ */
+function setUsername() {
+	if (validateUsername()) {
+		mUsername = $("#username_field").val();
+		if (navigator && navigator.cascades) {
+			navigator.cascades.postMessage(mUsername);
+		}
+
+		$("#username").toggleClass("hide");
+		$("#meter").toggleClass("hide");
+
+		// store the hashed username
+		//mUsername = mUsername.hashCode();
+
+		// Set the loading gif to visible
+		$("#loading_gif").removeClass("hide");
+		// get the current rating
+		getAllRatingsToDisplay();
+		
+		// start the timer to query for the rating
+		startRatingTimers();
+	}
+}
+
+/**
+ * Validates the username input
+ */
+function validateUsername() {
+	var username = $("#username_field").val();
+	if (username == null || username.length == 0) {
+		$("#error_msg").text("You need to enter a username");
+		$("#error_msg").removeClass("hide");
+		return false;
+	}
+	
+	var validUsers = ["sfahmy","avaz","jarmstrong","dackland","mromo","mbamimore","chung","mmclaughlin","a"];
+	var arrayLength = validUsers.length;
+	for (var i = 0; i < arrayLength; i++) {
+    	if (username.toLowerCase() === validUsers[i].toLowerCase()) {
+    		return true;
+    	}
+	}
+	
+	$("#error_msg").text("\'" + username + "\' is not a valid username");
+	$("#error_msg").removeClass("hide");
+	
+	return false;
+	//return true;
+}
+
+function getAllRatingsToDisplay() {
+	getCurrentRating();
+	getRatings();
+}
+
+function startRatingTimers() {
+	mRatingTimer = setInterval(getCurrentRating, 15000); // 15 seconds
+	setInterval(getRatings, 15000); // 15 seconds
+}
+
+/**
+ * Queries the server for the current rating
+ */
+function getCurrentRating() {
+
+	if (mUsername == null || mUsername.length == 0) {
+		return;
+	}
+
+	$.ajax({
+		url: 'get_current_rating.php',
+		type: 'get',
+		success: function(data) {
+			console.log("success data: " + data);
+			// parse the JSON returned from the server
+			try {
+				var responseText = jQuery.parseJSON(data);
+			
+				// set the smiley image
+				if (responseText.rating <= 1.4) {
+					$("#main_smiley").attr("src", "smiley_happy.png");
+				} else if (responseText.rating > 1.4 && responseText.rating <= 1.8) {
+					$("#main_smiley").attr("src", "smiley_smile.png");
+				} else if (responseText.rating > 1.8 && responseText.rating <= 2.2) {
+					$("#main_smiley").attr("src", "smiley_meh.png");
+				} else if (responseText.rating > 2.2 && responseText.rating <= 2.6) {
+					$("#main_smiley").attr("src", "smiley_tired.png");
+				} else if (responseText.rating > 2.6) {
+					$("#main_smiley").attr("src", "smiley_bored.png");
+				}
+			} catch(error) {
+				console.log("error on json parse: " + error);
+			}
+		},
+		error: function(data) {
+			console.log("error data: " + data);
+		},
+		complete: function(data) {
+			// hide the loading gif in case it is showing
+			$("#loading_gif").addClass("hide");
+			
+			// set the smiley image to visible
+			$("#main_smiley").removeClass("hide");
+		}
+	});
+}
+
+/**
+ * Queries the server for ratings to display
+ */
+function getRatings() {
+
+	if (mUsername == null || mUsername.length == 0) {
+		return;
+	}
+
+	$.ajax({
+		url: 'get_ratings.php',
+		type: 'get',
+		success: function(data) {
+			console.log("success data: " + data);
+			// parse the JSON returned from the server
+			try {
+				var responseText = jQuery.parseJSON(data);
+
+				$("#people_ratings_container").empty();
+
+				var parentDiv = document.getElementById("people_ratings_container");
+			
+				// responseText should be an array
+				for (var i=0; i<responseText.length; i++) {
+					var rating = responseText[i];
+
+					var image = "smiley_happy.png";
+
+					switch (rating) {
+						case "1":
+							image = "smiley_happy.png";
+							break;
+						case "2":
+							image = "smiley_meh.png";
+							break;
+						case "3":
+							image = "smiley_bored.png";
+							break;
+					}
+
+					var elem = document.createElement("img");
+					elem.src = image;
+					elem.setAttribute("class", "people_rating_image");
+
+					parentDiv.appendChild(elem);
+				}
+			} catch(error) {
+				console.log("error on json parse: " + error);
+			}
+		},
+		error: function(data) {
+			console.log("error data: " + data);
+		},
+		complete: function(data) {
+		}
+	});
+}
+
+/**
+ * Send a rating to the server
+ */
+function sendRating(ratingVal) {
+	// Only one request at a time
+	if (mRequestInProgress) {
+		return;
+	}
+
+	mRequestInProgress = true;
+	
+	$("#selections").addClass("transparency");
+
+	$.ajax({
+		url: 'set_rating.php',
+		type: 'post',
+		data: {
+			username: mUsername,
+			rating: ratingVal
+		},
+		success: function(data) {
+			console.log("success data: " + data);
+			
+			highlightSelection(ratingVal);
+		},
+		error: function(data) {
+			console.log("error data: " + data);
+		},
+		complete: function(data) {
+			mRequestInProgress = false;
+			$("#selections").removeClass("transparency");
+
+			getAllRatingsToDisplay();
+		}
+	});
+}
+
+function highlightSelection(ratingVal) {
+	$("#happy").removeClass("border");
+	$("#meh").removeClass("border");
+	$("#bored").removeClass("border");
+
+	if (ratingVal == 1) {
+		$("#happy").addClass("border");
+	} else if (ratingVal == 2) {
+		$("#meh").addClass("border");
+	} else if (ratingVal == 3) {
+		$("#bored").addClass("border");
+	}
+}
+
+/**
+ *
+ */
+function initialize() {
+	$(window).focus(function() {
+		getAllRatingsToDisplay();
+	});
+	
+	/*$(window).blur(function() {
+		clearInterval(mRatingTimer);
+	});*/
+	
+	// Handle enter key
+	$("#username_field").keypress(function(event) {
+    if (event.which == 13) {
+        event.preventDefault();
+		setUsername();
+    }
+});
+}
+
+function showHideDescription() {
+	$("#meter, #username").toggleClass("blur");
+	$("#body").toggleClass("no_scroll");
+	$("#description").fadeToggle( "fast", "easeOutCubic" );
+}
+
+function showHideLegend() {
+	$("#meter, #username").toggleClass("blur");
+	$("#body").toggleClass("no_scroll");
+	$("#legend").fadeToggle( "fast", "easeOutCubic" );
+}
+
+// FOR TESTING ONLY
+function showSmiley() {
+	$("#main_smiley").toggleClass("hide");
+	$("#loading_gif").toggleClass("hide");
+}
+
+</script>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.3/jquery-ui.min.js"></script>
+
+</head>
+
+<body id="body" onLoad="initialize()">
+
+<div id="username">
+	<div class="center opensans_font">
+		<fieldset id="fieldset">
+			<p id="welcome_rating_banner">The Happy Meter</p>
+			<p id="welcome_rating_info">To begin rating, please enter your RIMNET username.</p>
+			<div><input id="username_field" type="text" name="username" placeholder="username" autofocus></div>
+			<div><span id="error_msg" class="error hide"></span></div> 
+			<div><button id="submitbutton" type="button" onClick="setUsername()">Start Rating</button></div>
+			<div id="what_is_this_username" class="center-text opensans_font">
+				<span onClick="showHideDescription()">what is this?</span>
+			</div>
+		</fieldset>
+	</div>
+</div>
+
+<div id="meter" class="indie_font hide center-text">
+	<div id="meter_box">
+		<p id="heading">THE MOOD RIGHT NOW</p>
+		<div id="main_smiley_box" class="center-text">
+			<img id="main_smiley" class="smiley hide" src="smiley_happy.png" onClick="showHideLegend()">
+			<img id="loading_gif" class="smiley hide" src="loading.gif" onClick="">
+			<div id="people_ratings_container" class="center-text">
+				<!-- rating images will go here -->
+			</div>
+		</div>
+		<div id="selections">
+			<p id="question">How are you feeling?</p>
+			<div class="center-text">
+				<div id="happy" class="smiley_box">
+					<img class="smiley_select"src="smiley_happy.png" onClick="sendRating('1')">
+					<p class="smiley_select_text">Happy</p>
+				</div>
+				<div id="meh" class="smiley_box">
+					<img class="smiley_select" src="smiley_meh.png" onClick="sendRating('2')">
+					<p  class="smiley_select_text">Neutral</p>
+				</div>
+				<div id="bored" class="smiley_box">
+					<img class="smiley_select" src="smiley_bored.png" onClick="sendRating('3')">
+					<p  class="smiley_select_text">Bored</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="what_is_this" class="center-text opensans_font">
+		<span onClick="showHideDescription()">what is this?</span>
+	</div>
+	
+	<a id="mood_over_time" href="mood_over_time.html">Mood Over Time</a> 
+
+</div>
+
+<div id="description" class="description opensans_font hide">
+	<div class="description_box">
+		<div class="close" onClick="showHideDescription();">&times;</div>
+		<section class="description_text">
+		<h3>What is it?</h3>
+		<p>
+		The Happy Meter is a real time indicator of the general sentiment of the group. It is live, constantly updated, and crowdsourced by the input of members of the group. All registered sentiments are anonymous.
+		</p>
+		<h3>How do I use it?</h3>
+		<p>
+		The large face in the middle represents the collective group's sentiment and is live/real-time. You can affect the group's sentiment by selecting one of the faces in the "How are you feeling?" section. You can only have one sentiment registered at any given time. The group's sentiment is an average of everyone's registered sentiment.
+		</p>
+		<h3>Legend</h3>
+		<table id="legend_table">
+			<tr>
+				<th>Image</th>
+				<th>Feeling</th>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_happy.png" class="smiley_legend"></td>
+				<td>Very Engaged/Very Happy</td>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_smile.png" class="smiley_legend"></td>
+				<td>Engaged/Happy</td>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_meh.png" class="smiley_legend"></td>
+				<td>Meh/Neutral</td>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_tired.png" class="smiley_legend"></td>
+				<td>Getting Disengaged/Getting Tired/Getting Unhappy</td>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_bored.png" class="smiley_legend"></td>
+				<td>Not Engaged/Bored/Unhappy</td>
+			</tr>
+		</table>
+		</section>
+	</div>
+</div>
+
+<div id="legend" class="description opensans_font hide">
+	<div class="description_box">
+		<div class="close" onClick="showHideLegend();">&times;</div>
+		<section class="description_text">
+		<h3>Legend</h3>
+		<table id="legend_table">
+			<tr>
+				<th>Image</th>
+				<th>Feeling</th>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_happy.png" class="smiley_legend"></td>
+				<td>Very Engaged/Very Happy</td>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_smile.png" class="smiley_legend"></td>
+				<td>Engaged/Happy</td>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_meh.png" class="smiley_legend"></td>
+				<td>Meh/Neutral</td>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_tired.png" class="smiley_legend"></td>
+				<td>Getting Disengaged/Getting Tired/Getting Unhappy</td>
+			</tr>
+			<tr>
+				<td class="center-text"><img src="smiley_bored.png" class="smiley_legend"></td>
+				<td>Not Engaged/Bored/Unhappy</td>
+			</tr>
+		</table>
+		</section>
+	</div>
+</div>
+
+</body>
+
+</html>

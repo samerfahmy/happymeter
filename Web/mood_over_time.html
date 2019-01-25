@@ -1,0 +1,112 @@
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+<script src="http://code.highcharts.com/stock/highstock.js"></script>
+<div id="chartContainer"></div>
+
+<script type="text/javascript">
+
+setTimeout(function () { 
+    location.reload();
+}, 60 * 1000);
+
+function displayChart() { 
+	$.ajax({
+		url: 'get_mood_over_time.php',
+		type: 'get',
+		success: function(data) {
+			data = JSON.parse(data);
+
+			var ratingsData = [];
+			jQuery.each(data, function(i,v){
+				ratingsData.push([Date.parse(new Date(v.update_time.replace(/-/g,"/") + " GMT-0000")),parseFloat(v.current_rating)]);
+			});
+
+			createChart(ratingsData);
+		}
+	});
+
+}
+
+function createChart(ratingsData)
+{
+	$('#chartContainer').highcharts('StockChart',{
+		title: {
+			text: 'Mood Over Time'
+		},
+		chart: {
+			type: 'spline'
+		},
+		plotOptions: {
+		    spline: {
+			marker: {
+			    enabled: true
+			}
+		    }
+		},
+		rangeSelector: {
+			buttons: [{
+					type: 'day',
+					count: 1,
+					text: 'Day'
+				}, {
+					type: 'day',
+					count: 7,
+					text: 'Week'
+				}, {
+					type: 'month',
+					count: 1,
+					text: 'Month'
+				}, {
+					type: 'ytd',
+					text: 'YTD'
+				}, {
+					type: 'year',
+					count: 1,
+					text: 'Year'
+				}, {
+					type: 'all',
+					text: 'All'
+			}]
+
+		},
+		xAxis: {
+			ordinal: false
+		},
+		yAxis: {
+			max: 1,
+			min: 0,
+			labels: {
+			useHTML: true,
+			formatter: function() {
+				var label = this.value;
+				switch(this.value){
+					case 1:
+						label = '<img src="smiley_happy.png" width="30">';
+						break;
+					case 0.5:
+						label = '<img src="smiley_meh.png" width="30">';
+						break;
+					case 0:
+						label = '<img src="smiley_bored.png" width="30">';
+						break;
+					default:
+						label= '';
+						break;
+				}
+
+				return label;
+			}},
+			showLastLabel:true,
+			opposite: false
+		},
+		series: [{
+			name: 'Ratings',
+			data: ratingsData
+		}]
+	});
+}
+
+displayChart();
+</script>
